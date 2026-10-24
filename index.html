@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>食堂阿姨模拟器 - 滑动修复版</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://js.puter.com/v2/"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;position:fixed;top:0;left:0;}
+body{font-family:'ZCOOL KuaiLe','站酷快乐体','华文琥珀','YouYuan','幼圆','Microsoft YaHei',sans-serif;background:#e8d5b5;}
+.h{display:none!important;}
+.hand-border{border:3px solid #5a4a3a;border-radius:16px;box-shadow:3px 4px 0 rgba(90,74,58,.3);background:#fff9e6;}
+
+/* 特效 */
+.shake-effect { animation: screenShake 0.4s ease-in-out; }
+.red-flash { background-color: rgba(255, 0, 0, 0.4) !important; }
+@keyframes screenShake { 0%, 100% { transform: translate(0, 0); } 10%, 90% { transform: translate(-4px, 0); } 20%, 80% { transform: translate(4px, 0); } 30%, 50%, 70% { transform: translate(-6px, 0); } 40%, 60% { transform: translate(6px, 0); } }
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-60px) scale(1.5);}}
+.float-text{position:absolute;font-size:28px;font-weight:bold;color:#d4574a;pointer-events:none;z-index:400;text-shadow:2px 2px 0 #fff;animation:floatUp 1s ease forwards;}
+
+/* 通用按钮 */
+.sketch-btn{background:#fff;border:3px solid #5a4a3a;border-radius:12px;padding:10px 20px;font-size:16px;font-family:inherit;font-weight:bold;color:#5a4a3a;cursor:pointer;box-shadow:2px 3px 0 #5a4a3a;transition:all .1s;}
+.sketch-btn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 #5a4a3a;}
+.btn-green{background:#90EE90;}
+.btn-yellow{background:#FFD93D;}
+.btn-red{background:#ff6b6b;color:#fff;}
+.btn-blue{background:#87CEEB;color:#fff;}
+
+/* 主菜单 */
+#mm{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;background:linear-gradient(180deg,#87CEEB 0%,#98D8C8 100%);z-index:10;}
+.title-board{background:#fff9e6;padding:25px 50px;transform:rotate(-2deg);margin-bottom:20px;border:3px solid #5a4a3a;border-radius:16px;box-shadow:4px 5px 0 #5a4a3a;}
+.title-board h1{color:#d4574a;font-size:42px;text-shadow:3px 3px 0 #f4e4bc;letter-spacing:4px;}
+#totalMoneyDisplay { font-size: 20px; font-weight: bold; color: #d4574a; margin-bottom: 20px; background: #fff9e6; padding: 10px 30px; border-radius: 20px; border: 3px solid #5a4a3a; box-shadow: 3px 4px 0 #5a4a3a; }
+
+/* 弹窗 */
+.modal-mask { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; }
+.modal-box { background:#fff9e6; border:4px solid #5a4a3a; border-radius:20px; padding:20px; width:90%; max-width:400px; text-align:center; box-shadow:5px 6px 0 rgba(0,0,0,0.3); }
+.lb-list { max-height:300px; overflow-y:auto; margin-bottom:15px; border:2px solid #d4c4a0; border-radius:10px; padding:10px; background:#fff; text-align:left; }
+.lb-item { display:flex; justify-content:space-between; padding:8px; border-bottom:1px dashed #ccc; font-size:14px; font-weight:bold; }
+
+/* 摊位选择 */
+#stallSelect{width:100%;height:100%;position:absolute;top:0;left:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#FFE4B5 0%,#DEB887 100%);z-index:12;overflow-y:auto;padding:20px 0;}
+.stall-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;padding:20px;max-width:900px;width:100%;}
+.stall-card{background:#fff9e6;border:3px solid #5a4a3a;border-radius:18px;padding:15px;text-align:center;cursor:pointer;transition:all .2s;}
+.stall-card:hover{transform:translateY(-5px);box-shadow:4px 6px 0 rgba(90,74,58,.3);}
+.stall-card.selected{border-color:#90EE90;background:#f0fff0;box-shadow:0 0 0 4px #90EE90;}
+.stall-card.locked { opacity: 0.6; filter: grayscale(0.8); }
+.stall-icon{font-size:40px;margin-bottom:8px;}
+.stall-name{font-size:18px;color:#d4574a;font-weight:bold;}
+
+/* 游戏主界面 */
+#gs{width:100%;height:100%;position:absolute;top:0;left:0;display:none;background:#e8d5b5;overflow:hidden;z-index:20;}
+#tb{background:#2d4a3e;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #5a4a3a;box-shadow:0 3px 10px rgba(0,0,0,.3);position:absolute;top:0;left:0;width:100%;height:55px;z-index:50;}
+#md{color:#FFD93D;font-size:20px;font-weight:bold;}
+#bm{background:transparent;border:2px dashed #f0f0d0;border-radius:10px;padding:6px 16px;font-size:14px;color:#fff;cursor:pointer;}
+#statsBar{background:#fff9e6;border:2px solid #5a4a3a;border-radius:12px;padding:4px 16px;font-size:13px;font-weight:bold;color:#5a4a3a; position:absolute; left: 50%; transform: translateX(-50%);}
+
+/* ====== 左上角悬浮 ====== */
+#leftPanel{position:absolute;top:65px;left:15px;z-index:60;display:flex;flex-direction:column;gap:10px; width: 170px;}
+#curSpoon{background:#fff9e6;border:3px solid #5a4a3a;border-radius:15px;padding:10px 16px;box-shadow:3px 4px 0 rgba(90,74,58,.3);display:flex;align-items:center;gap:8px; cursor:pointer;}
+#curSpoon .spoon-icon{font-size:26px;}
+#curSpoon .spoon-text{color:#5a4a3a;font-size:12px;}
+#curSpoon strong{color:#d4574a;font-size:14px;}
+#restockBtn{background:#87CEEB;border:3px solid #5a4a3a;border-radius:12px;padding:8px 16px;font-size:14px;font-family:inherit;font-weight:bold;cursor:pointer;box-shadow:2px 3px 0 #5a4a3a;color:#fff;}
+#restockBtn:active{transform:translateY(2px);box-shadow:1px 1px 0 #5a4a3a;}
+
+/* 勺子商店折叠 (关键修改：允许滚动) */
+#shopPanel{background:#fff9e6;border:3px solid #5a4a3a;border-radius:15px;padding:12px;box-shadow:3px 4px 0 rgba(90,74,58,.3);transition:all .3s ease;max-height:250px; overflow-y: auto; /* <--- 改为支持纵向滑动 */}
+/* 美化滚动条 */
+#shopPanel::-webkit-scrollbar { width: 8px; }
+#shopPanel::-webkit-scrollbar-track { background: #f4e4bc; border-radius: 4px; }
+#shopPanel::-webkit-scrollbar-thumb { background: #d4c4a0; border-radius: 4px; border: 1px solid #5a4a3a; }
+#shopPanel::-webkit-scrollbar-thumb:hover { background: #c4a574; }
+
+#shopPanel.collapsed{max-height:45px;overflow:hidden;cursor:pointer;}
+#shopPanel.collapsed #spoonList{display:none;}
+.shop-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+#shopPanel.collapsed .shop-header{margin-bottom:0;justify-content:center;}
+.shop-title-text{color:#d4574a;font-size:16px;font-weight:bold;display:flex;align-items:center;gap:5px;}
+.shop-toggle{width:24px;height:24px;background:#f4e4bc;border:2px solid #5a4a3a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;}
+
+/* 竖版技能栏 */
+#skillPanel { display: flex; flex-direction: column; gap: 8px; width: 100%; min-height: 40px; }
+.skill-icon { background: #fff9e6; border: 2px solid #5a4a3a; border-radius: 8px; padding: 6px; display: flex; align-items: center; gap: 8px; font-size: 16px; box-shadow: 2px 2px 0 rgba(0,0,0,0.1); font-weight: bold; color: #5a4a3a;}
+.skill-icon .sk-name { font-size: 12px; color: #d4574a;}
+
+/* ====== 中间区域 ====== */
+#sc{display:flex;justify-content:center;align-items:flex-end;position:absolute;top:120px;left:0;right:0;bottom:110px;padding:15px;gap:20px;}
+
+.char-card{background:#fff9e6;padding:15px;position:relative;z-index:5;width:150px;text-align:center;}
+.char-card img{width:110px;height:130px;object-fit:contain;filter:drop-shadow(2px 4px 4px rgba(0,0,0,.2));}
+.char-label{text-align:center;margin-top:8px;font-size:15px;color:#5a4a3a;font-weight:bold;}
+#stuPatience{width:100%;height:10px;background:#ccc;border-radius:6px;margin-top:8px;overflow:hidden;border:2px solid #5a4a3a;}
+#stuPatienceFill{height:100%;background:#90EE90;width:100%;transition:width .1s linear, background .3s;}
+.special-tag{position:absolute;top:-10px;right:-10px;background:#FFD93D;border:2px solid #5a4a3a;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:bold;color:#5a4a3a;z-index:10;}
+#orderText{font-size:12px;color:#d4574a;margin-top:6px;font-weight:bold;line-height:1.4;min-height:34px;}
+#orderText .dialog {color:#888; font-size:11px;font-weight:normal; display:block; margin-top:2px;}
+
+.food-station{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;z-index:5;margin-bottom:10px;flex:1;max-width:450px;}
+#foodTray{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;background:#c4a574;border:4px solid #8b7355;border-radius:20px;padding:12px 15px;box-shadow:inset 0 3px 10px rgba(0,0,0,.2),0 4px 0 #6b5344;margin-bottom:20px;width:100%;}
+.food-item{width:70px;height:80px;border-radius:12px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff9e6;border:3px solid #5a4a3a;box-shadow:0 3px 6px rgba(0,0,0,.3);cursor:pointer;transition:all .15s;}
+.food-item:hover{transform:translateY(-5px);}
+.food-item.selected{border-color:#FFD93D;background:#fffbe6;box-shadow:0 0 0 4px #FFD93D,0 3px 6px rgba(0,0,0,.3);}
+.food-item img{width:36px;height:36px;object-fit:contain;}
+.food-item .fname{font-size:12px;font-weight:bold;color:#5a4a3a;margin-top:4px;}
+.food-item .fstock{position:absolute;top:-8px;right:-8px;background:#d4574a;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;border:2px solid #fff9e6;}
+.food-item.disabled{opacity:0.5;filter:grayscale(1);cursor:not-allowed;}
+
+.plate{width:100%;min-height:70px;background:#f0f0f0;border:4px solid #ccc;border-radius:30px;position:relative;box-shadow:0 5px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;padding:10px;}
+.plate-food{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;}
+.plate-item{background:#fff9e6;border:2px solid #5a4a3a;border-radius:8px;padding:2px 6px;display:flex;align-items:center;gap:2px;font-size:12px;font-weight:bold;}
+.plate-item img{width:20px;height:20px;object-fit:contain;}
+
+/* ====== 右侧排队区 ====== */
+#queueArea{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;background:rgba(255,255,255,0.4);border:3px solid #5a4a3a;border-radius:15px;padding:8px;z-index:5;width:85px; min-height:150px;}
+.queue-slot { background: #d4c4a0; border: 2px dashed #8b7355; border-radius:10px; padding:4px; display:flex; flex-direction:column; align-items: center; justify-content: center; height: 60px; position: relative; transition: all 0.3s;}
+.queue-slot.filled { background: #fff9e6; border: 2px solid #5a4a3a; box-shadow: 2px 2px 0 rgba(0,0,0,0.1);}
+.queue-slot img { width: 30px; height: 36px; }
+.queue-slot .qpat { position: absolute; bottom: 4px; left: 10%; width: 80%; height: 4px; background: #ccc; border-radius: 2px; overflow: hidden;}
+.queue-slot .qpat-fill { height: 100%; background: #FFD93D; transition: width .1s linear;}
+.queue-slot .empty-text { color: #a09070; font-size: 12px; font-weight: bold;}
+
+/* ====== 底部操作 ====== */
+#ctrl{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:12px;background:#fff9e6;padding:15px 25px;border:3px solid #5a4a3a;border-radius:18px;box-shadow:3px 4px 0 rgba(90,74,58,.3);z-index:50;align-items:center;}
+.action-btn{background:#f4e4bc;border:3px solid #5a4a3a;border-radius:12px;padding:12px 24px;font-size:16px;font-family:inherit;color:#5a4a3a;cursor:pointer;box-shadow:2px 3px 0 #5a4a3a;transition:all .15s;font-weight:bold;display:flex;align-items:center;gap:6px;}
+.action-btn:hover{transform:translateY(-2px);box-shadow:3px 5px 0 #5a4a3a;}
+.action-btn:active{transform:translateY(2px);box-shadow:1px 2px 0 #5a4a3a;}
+.action-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:2px 3px 0 #5a4a3a;}
+#serveBtn{background:#ff6b6b;color:#fff;font-size:18px;}
+#actionGroup{display:none;gap:12px;align-items:center;}
+#actionGroup.show{display:flex;}
+#packBtn{background:#90EE90;}
+#shakeBtn{background:#FFD93D;}
+
+#toast{position:absolute;top:20%;left:50%;transform:translateX(-50%);background:rgba(90,74,58,0.95);color:#fff;padding:12px 30px;border-radius:20px;font-size:18px;font-weight:bold;z-index:400;opacity:0;transition:opacity .2s;pointer-events:none;border:3px solid #fff;}
+#toast.show{opacity:1;}
+#toast.catch{background:rgba(255, 60, 60, 0.95);font-size:24px;padding:20px 40px;border-color:#ff0;box-shadow:0 0 20px red;}
+
+#settlePopup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:#fff9e6;border:4px solid #5a4a3a;border-radius:20px;padding:20px 30px;text-align:center;z-index:250;box-shadow:5px 6px 0 rgba(90,74,58,.3);transition:transform .3s ease;min-width:280px;cursor:pointer;}
+#settlePopup.show{transform:translate(-50%,-50%) scale(1);}
+
+/* 技能弹窗 */
+#skillPopup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:#fff9e6;border:4px solid #5a4a3a;border-radius:20px;padding:20px;text-align:center;z-index:1000;box-shadow:5px 6px 0 rgba(90,74,58,.3);transition:transform .3s ease;width:90%;max-width:600px;}
+#skillPopup.show{transform:translate(-50%,-50%) scale(1);}
+.skill-options { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+.skill-card { flex: 1; background: #fff; border: 3px solid #d4c4a0; border-radius: 15px; padding: 15px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.skill-card:hover { border-color: #FFD93D; transform: translateY(-5px); box-shadow: 0 8px 12px rgba(0,0,0,0.15); }
+.skill-card .icon { font-size: 32px; margin-bottom: 8px; }
+.skill-card .s-name { font-size: 16px; font-weight: bold; color: #d4574a; margin-bottom: 5px; }
+.skill-card .s-desc { font-size: 12px; color: #888; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div id="mm">
+<div class="title-board"><h1>食堂阿姨模拟器</h1></div>
+<div id="totalMoneyDisplay">加载云端资产中...</div>
+<div style="display:flex;flex-direction:column;gap:10px;">
+<button class="sketch-btn btn-green" onclick="showStallSelect()" style="font-size:20px;padding:15px 40px;">▶ 开始营业</button>
+<button class="sketch-btn btn-yellow" onclick="openLeaderboard()">🏆 食堂黑心榜</button>
+<button class="sketch-btn" onclick="showTutorial()">📖 游戏说明</button>
+</div>
+</div>
+
+<div id="lbModal" class="modal-mask">
+  <div class="modal-box">
+    <h2 style="color:#d4574a;margin-bottom:15px;">🏆 全网黑心榜</h2>
+    <div class="lb-list" id="lbList">加载中...</div>
+    <button class="sketch-btn" onclick="document.getElementById('lbModal').style.display='none'">关闭</button>
+  </div>
+</div>
+
+<div id="stallSelect">
+<div class="title-board" style="margin-bottom:10px;"><h1 style="font-size:28px;">选择你的摊位</h1></div>
+<div class="stall-grid" id="stallGrid"></div>
+<div style="margin-top:15px; display:flex; gap:10px;">
+<button class="sketch-btn btn-green" onclick="confirmStall()" id="confirmStallBtn" disabled>确认选择</button>
+<button class="sketch-btn" onclick="backToMenu()">← 返回</button>
+</div>
+</div>
+
+<div id="gs">
+<div id="tb">
+<button id="bm" onclick="backM()">← 主菜单</button>
+<div id="statsBar">今日接待: 0 | 累计抖勺: 0 | 被抓次数: 0</div>
+<div style="display:flex;align-items:center;gap:15px; margin-right: 10px;">
+<span id="md">💰 0元</span><span style="font-size:13px;color:#b8d4c8;">/ 目标1000元</span>
+</div>
+</div>
+
+<!-- 左侧面板 -->
+<div id="leftPanel">
+  <div id="curSpoon" class="hand-border">
+    <span class="spoon-icon">🥄</span>
+    <div class="spoon-text">
+      <div><strong id="curSpoonName">生锈铁勺</strong></div>
+      <div id="curSpoonDesc" style="color:#888;font-size:10px;">每份2个菜</div>
+    </div>
+  </div>
+  <button id="restockBtn" onclick="openRestock()">📦 进货补菜</button>
+  
+  <!-- 勺子商店 (现在可以滚动了) -->
+  <div id="shopPanel" class="hand-border collapsed">
+    <div class="shop-header" onclick="toggleShop()"><span class="shop-title-text">🛒 升级勺子</span><span class="shop-toggle">▲</span></div>
+    <div id="spoonList"></div>
+  </div>
+
+  <!-- 竖版技能栏 -->
+  <div id="skillPanel"></div>
+</div>
+
+<!-- 中间区域 -->
+<div id="sc">
+  <div class="char-card hand-border"><img src="https://openmoji.org/data/color/svg/1F469-200D-1F373.svg"><div class="char-label">王阿姨</div></div>
+
+  <div class="food-station">
+    <div id="foodTray"></div>
+    <div class="plate"><div class="plate-food" id="plateFood"><span style="color:#888;font-size:14px;margin:auto;">餐盘空空如也</span></div></div>
+  </div>
+
+  <div class="char-card hand-border" id="student-card">
+    <span class="special-tag" id="specialTag" style="display:none;"></span>
+    <img id="studentImg" src="https://openmoji.org/data/color/svg/23F3.svg">
+    <div class="char-label" id="stuName">等待中...</div>
+    <div id="stuPatience"><div id="stuPatienceFill"></div></div>
+    <div id="orderText"></div>
+  </div>
+
+  <div id="queueArea">
+    <div class="queue-slot" id="qSlot0"></div>
+    <div class="queue-slot" id="qSlot1"></div>
+    <div class="queue-slot" id="qSlot2"></div>
+  </div>
+</div>
+
+<!-- 底部操作 -->
+<div id="ctrl">
+  <div id="actionGroup">
+    <span id="selectedDishName" style="font-size:16px;font-weight:bold;color:#d4574a;"></span>
+    <button class="action-btn" id="packBtn" onclick="doAction(false)">📦 装盒</button>
+    <button class="action-btn" id="shakeBtn" onclick="doAction(true)">👋 手抖</button>
+    <button class="action-btn" onclick="cancelSelect()" style="background:#e8e0d0;font-size:14px;">取消</button>
+  </div>
+  <button class="action-btn" id="serveBtn" onclick="serve()" style="display:none; font-size:20px; padding:15px 50px;">🍱 交给学生</button>
+  <div id="waitingMsg" style="font-size:18px;font-weight:bold;color:#888;display:none;">正在等待学生...</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="settlePopup">
+  <h2 style="color:#d4574a;margin-bottom:10px;font-size:22px;" id="settleTitle">结算</h2>
+  <div id="settleContent" style="font-size:15px;line-height:1.8; text-align:left;"></div>
+  <button class="sketch-btn btn-green" style="margin-top:15px;width:100%;" onclick="closeSettle()">继续营业</button>
+</div>
+
+<div id="skillPopup">
+  <h2 style="color:#d4574a;font-size:24px;margin-bottom:5px;">🌟 阿姨觉醒了！</h2>
+  <p style="color:#888;font-size:13px;">营业额突破新阶段，选择一项永久强化：</p>
+  <div class="skill-options" id="skillOptions"></div>
+</div>
+
+<div id="restockModal" class="modal-mask">
+  <div class="modal-box">
+    <h3 style="color:#d4574a;margin-bottom:15px;">📦 进货 (点击+10)</h3>
+    <div id="restockContent" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div>
+    <button class="sketch-btn" onclick="document.getElementById('restockModal').style.display='none'">关闭</button>
+  </div>
+</div>
+
+<div id="winModal" class="modal-mask">
+  <div class="modal-box">
+    <h1 style="font-size:32px;color:#d4574a;margin-bottom:10px;">🎉 恭喜通关！</h1>
+    <p style="font-size:16px;line-height:1.8;margin-bottom:20px;" id="winStats"></p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="sketch-btn btn-green" onclick="resetG()">再玩一次</button>
+      <button class="sketch-btn" onclick="backM()">回主菜单</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ==================== 初始化 Supabase ====================
+const SUPABASE_URL = 'https://erjoossvzfsxyxuovij.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Lr47FtuuWDVnqY63bAawtw_V-2KsKuF';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let playerId = localStorage.getItem('canteen_player_id');
+let playerName = localStorage.getItem('canteen_player_name');
+if (!playerId) {
+    playerId = 'user_' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('canteen_player_id', playerId);
+}
+
+// ==================== 全局数据 ====================
+const target = 1000;
+let money = 0;
+let totalMoney = 0; 
+let selectedStall = null;
+let curSpoonIdx = 0;
+let shopExpanded = false;
+let totalStudents = 0, totalShakes = 0, totalCaught = 0;
+let safeStreak = 0; 
+let unlockedStalls = JSON.parse(localStorage.getItem('canteen_unlocked_stalls')) || ['regular', 'malatang'];
+let queue = [], curStudent = null, plate = [], inventory = {};
+let selectedDishId = null, softShakeCount = 0;
+let patienceTimer = null;
+let waitForStudentTimer = null;
+// --- 新增计时变量 ---
+let startTime = 0;
+let timerInterval = null;
+
+// 技能系统数据
+let learnedSkills = [];
+let skillMilestones = [200, 400, 600, 800];
+let skillTriggered = [false, false, false, false];
+const allSkills = [
+    { id: 'ghost', name: '无影手', icon: '👻', desc: '被抓率永久降低 10%' },
+    { id: 'iron', name: '铁砂掌', icon: '🛡️', desc: '被抓罚款减半' },
+    { id: 'swipe', name: '顺手牵羊', icon: '🖐️', desc: '装盒有 20% 概率不扣库存' },
+    { id: 'combo', name: '连击大师', icon: '🔥', desc: '每层连击减抓率提升至 8%' }
+];
+
+const stalls = [
+  { id:'regular', name:'普通食堂', icon:'🍚', desc:'家常菜，客流稳定', priceMod:1, baseTraffic:1.0, unlockCost:0, colors:['#e8d5b5','#d4c4a0'] },
+  { id:'malatang', name:'麻辣烫摊', icon:'🍲', desc:'海鲜面食，单价高', priceMod:1.2, baseTraffic:0.9, unlockCost:0, colors:['#ff6b6b22','#ff6b6b44'] },
+  { id:'lunchbox', name:'精品盒饭', icon:'🍱', desc:'精致盒饭，利润高', priceMod:1.5, baseTraffic:0.8, unlockCost:1000, colors:['#FFD93D22','#FFD93D44'] },
+  { id:'bbq', name:'烧烤摊', icon:'🍢', desc:'夜宵之王，客流极大', priceMod:1.8, baseTraffic:0.95, unlockCost:2500, colors:['#ff950022','#ff950044'] },
+  { id:'noodle', name:'拉面档口', icon:'🍜', desc:'手工拉面，成本极低', priceMod:1.2, baseTraffic:0.85, unlockCost:1500, colors:['#87CEEB22','#87CEEB44'] },
+  { id:'buffet', name:'自助火锅', icon:'🥘', desc:'高端路线，单价极高', priceMod:2.0, baseTraffic:0.7, unlockCost:5000, colors:['#d4574a22','#d4574a44'] }
+];
+
+// 基础菜价
+const stallMenus = {
+  regular: [ { id:'hsr', name:'红烧肉', icon:'1F356', price:6 }, { id:'qc', name:'炒青菜', icon:'1F96C', price:2 }, { id:'jt', name:'卤鸡腿', icon:'1F357', price:8 }, { id:'tds', name:'土豆丝', icon:'1F954', price:2 }, { id:'fq', name:'番茄炒蛋', icon:'1F345', price:4 } ],
+  malatang: [ { id:'hxz', name:'生烤黄蚬子', icon:'1F9AA', price:12 }, { id:'nrm', name:'忘情牛肉面', icon:'1F35C', price:10 }, { id:'yys', name:'鱿鱼三鲜', icon:'1F991', price:12 }, { id:'kf', name:'宽粉', icon:'1F35D', price:4 }, { id:'mala', name:'麻辣鸭血', icon:'1F986', price:6 } ],
+  lunchbox: [ { id:'pgf', name:'排骨饭', icon:'1F35A', price:14 }, { id:'nnf', name:'牛腩饭', icon:'1F356', price:16 }, { id:'jrf', name:'鸡肉饭', icon:'1F357', price:12 }, { id:'scf', name:'素菜盒', icon:'1F966', price:8 }, { id:'jj', name:'煎饺', icon:'1F95F', price:10 } ],
+  bbq: [ { id:'yrc', name:'羊肉串', icon:'1F362', price:6 }, { id:'kjc', name:'烤鸡翅', icon:'1F357', price:8 }, { id:'ky', name:'烤鱼', icon:'1F41F', price:16 }, { id:'kqz', name:'烤茄子', icon:'1F346', price:6 }, { id:'ym', name:'烤玉米', icon:'1F33D', price:3 } ],
+  noodle: [ { id:'nrm', name:'牛肉面', icon:'1F35C', price:12 }, { id:'zjm', name:'炸酱面', icon:'1F35D', price:10 }, { id:'slf', name:'酸辣粉', icon:'1F372', price:8 }, { id:'ht', name:'馄饨', icon:'1F95F', price:8 }, { id:'jd', name:'煎蛋', icon:'1F373', price:2 } ],
+  buffet: [ { id:'md', name:'毛肚', icon:'1F372', price:20 }, { id:'xue', name:'鸭血', icon:'1F986', price:12 }, { id:'hx', name:'大虾', icon:'1F990', price:18 }, { id:'nj', name:'牛菌菇', icon:'1F344', price:14 }, { id:'dp', name:'豆皮', icon:'1F95F', price:6 } ]
+};
+
+const specialTypes = {
+  normal: { name:'普通学生', icon:'1F468-200D-1F393', rate:40, catchRate:0.5, servings:1, tag:'', dialogues: ['阿姨，一份{t}，多打点汁！', '我要{t}，谢谢阿姨~', '{t}来一份，今天快饿死了。'], reactions: { good: ['谢谢阿姨！', '这菜真香！'], bad: ['阿姨！你这勺子怎么一直抖啊！', '算了算了，饿死了先吃吧。'] } },
+  athlete: { name:'体育生', icon:'1F3C3', rate:10, catchRate:0.65, servings:2, tag:'体育生', tagColor:'#4da844', dialogues: ['阿姨！{t}给我来两份！训练累死了！', '我要两份{t}，肉多打点！'], reactions: { good: ['太爽了！吃饱了才有力气打球！'], bad: ['阿姨！这哪够吃啊！我还在长身体！'] } },
+  scholar: { name:'学霸', icon:'1F469-200D-1F393', rate:8, catchRate:0.75, servings:1, tag:'学霸', tagColor:'#5b8cff', dialogues: ['阿姨，一份{t}，麻烦了。', '只要{t}，谢谢。'], reactions: { good: ['谢谢阿姨，打得真准。', '分量符合标准差。'], bad: ['您这克扣的量不符合正态分布，我要记下来。'] } },
+  poor: { name:'贫困生', icon:'1F622', rate:8, catchRate:0.4, servings:1, tag:'贫困生', tagColor:'#e8a0a0', dialogues: ['阿姨，能只要一份{t}吗...', '那个...我要一份{t}就好...'], reactions: { good: ['谢谢阿姨...您人真好。'], bad: ['没、没事的阿姨...能吃饱就行。'] } },
+  foodie: { name:'吃货', icon:'1F60B', rate:7, catchRate:0.65, servings:4, tag:'吃货', tagColor:'#ff9500', dialogues: ['阿姨！{t}给我来四份！我要大吃一顿！', '全都要！{t}来四份！'], reactions: { good: ['太满足了！阿姨万岁！'], bad: ['阿姨！这才几口啊！我的胃在抗议！'] } },
+  principal: { name:'校长', icon:'1F468-200D-1F3EB', rate:5, catchRate:0.9, servings:1, tag:'校长', tagColor:'#d4574a', penalty:20, dialogues: ['嗯，我看看...来份{t}吧。', '给我打一份{t}，手稳点。'], reactions: { good: ['嗯，不错，继续保持。'], bad: ['手这么抖？扣你工资！'] } },
+  inspector: { name:'检查员', icon:'1F575', rate:4, catchRate:0.85, servings:1, tag:'检查员', tagColor:'#8b4513', penalty:15, dialogues: ['突击检查。给我来一份{t}。', '我看看你们这菜量...一份{t}。'], reactions: { good: ['还行，符合标准。'], bad: ['记录下来了，等整改通知吧。'] } },
+  dummy: { name:'傻子', icon:'1F92A', rate:9, catchRate:0.25, servings:1, tag:'傻子', tagColor:'#ff69b4', dialogues: ['嘿嘿，饭饭！我要吃{t}！', '我要那个...那个{t}！'], reactions: { good: ['嘿嘿，阿姨真好！'], bad: ['嘿嘿，阿姨手在跳舞！'] } },
+  soft: { name:'软蛋', icon:'1F97A', rate:11, catchRate:0, servings:1, tag:'软蛋', tagColor:'#87CEEB', dialogues: ['那个...阿姨...我要一份{t}...', '阿姨...能给点{t}吗...'], reactions: { good: ['谢、谢谢阿姨...'], bad: ['没、没事...（不敢说话）'] } }
+};
+
+const spoons = [ { name:'生锈铁勺', price:0, portion:2, desc:'每份2个菜' }, { name:'不锈钢勺', price:20, portion:3, desc:'每份3个菜' }, { name:'菜刀勺子', price:50, portion:4, desc:'每份4个菜' }, { name:'骑士长勺', price:100, portion:5, desc:'每份5个菜' }, { name:'刺客短勺', price:180, portion:6, desc:'每份6个菜' }, { name:'海神三叉勺', price:300, portion:7, desc:'每份7个菜' } ];
+
+// ==================== 云端功能（带离线补传与通关计时） ====================
+async function fetchCloudMoney() {
+    try {
+        let { data, error } = await _supabase.from('profiles').select('total_money').eq('id', playerId).single();
+        if (data) totalMoney = data.total_money;
+    } catch (e) {
+        totalMoney = parseInt(localStorage.getItem('canteen_total_money')) || 0;
+    }
+    document.getElementById('totalMoneyDisplay').innerText = `💰 局外通用资产：${totalMoney} 元`;
+}
+
+// 专门负责偷偷补传成绩（断网/关网页也不怕丢）
+async function syncPendingTimes() {
+    let queue = JSON.parse(localStorage.getItem('canteen_pending_times')) || [];
+    if (queue.length === 0 || !playerName) return;
+
+    for (let i = 0; i < queue.length; i++) {
+        let record = queue[i];
+        try {
+            // 这里的 p_earned 我们借用一下，存的其实是通关秒数
+            let { data, error } = await _supabase.rpc('sync_score', { 
+                p_id: playerId, 
+                p_name: playerName, 
+                p_earned: record.time 
+            });
+            if (!error && data !== -1) {
+                // 传成功，删掉这条本地记录
+                queue.splice(i, 1);
+                i--;
+                localStorage.setItem('canteen_pending_times', JSON.stringify(queue));
+            } else {
+                break; 
+            }
+        } catch (e) {
+            break; // 网络断了，下次再传
+        }
+    }
+}
+
+// 通关时调用的提交函数
+async function submitScore(timeInSeconds) {
+    if (timeInSeconds <= 0) return;
+    if (!playerName) {
+        playerName = prompt("请输入你的食堂代号（用于上榜）：", "闪电阿姨") || "匿名阿姨";
+        localStorage.setItem('canteen_player_name', playerName);
+    }
+    
+    // 1. 塞进待同步队列（就算立刻关网页也不怕）
+    let queue = JSON.parse(localStorage.getItem('canteen_pending_times')) || [];
+    queue.push({ time: timeInSeconds, timestamp: Date.now() });
+    localStorage.setItem('canteen_pending_times', JSON.stringify(queue));
+
+    // 2. 后台静默同步
+    syncPendingTimes();
+}
+
+async function openLeaderboard() {
+    document.getElementById('lbModal').style.display = 'flex';
+    document.getElementById('lbList').innerHTML = '正在拉取全服速通榜...';
+    try {
+        // 查询排行榜，按时间升序（秒数越少越靠前）
+        let { data, error } = await _supabase.from('leaderboard').select('name, score').order('score', { ascending: true }).limit(10);
+        if (!data || data.length === 0) { document.getElementById('lbList').innerHTML = '榜单空空如也！'; return; }
+        
+        let html = '';
+        data.forEach((item, index) => {
+            let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            // 把分数格式化成 "X分Y秒"
+            let m = Math.floor(item.score / 60);
+            let s = item.score % 60;
+            let timeStr = m > 0 ? `${m}分${s}秒` : `${s}秒`;
+            html += `<div class="lb-item"><span>${medal} ${item.name}</span><span>${timeStr}</span></div>`;
+        });
+        document.getElementById('lbList').innerHTML = html;
+    } catch (e) {
+        document.getElementById('lbList').innerHTML = '网络异常，无法获取榜单。';
+    }
+}
+// ==================== 核心逻辑 ====================
+function roundToHalf(val) { return Math.round(val * 2) / 2; }
+function getCurrentTraffic() { if (!selectedStall) return 0.5; return selectedStall.baseTraffic || 1.0; }
+
+// ==================== 摊位系统 ====================
+function showStallSelect() { sfx('click'); document.getElementById('mm').classList.add('h'); document.getElementById('stallSelect').style.display = 'flex'; renderStallGrid(); }
+function renderStallGrid() {
+  let html = '';
+  stalls.forEach(s => {
+    let isUnlocked = unlockedStalls.includes(s.id) || totalMoney >= s.unlockCost;
+    let sel = selectedStall && selectedStall.id === s.id;
+    let cls = (sel?'selected ':'') + (!isUnlocked?'locked':'');
+    let lockText = unlockedStalls.includes(s.id) ? '' : `<div style="color:#d4574a;font-weight:bold;margin-top:5px;font-size:12px;">🔒 需 ${s.unlockCost} 资产解锁</div>`;
+    
+    html += `<div class="stall-card ${cls}" onclick="selectStall('${s.id}')"><div class="stall-icon">${s.icon}</div><div class="stall-name">${s.name}</div><div class="stall-desc">${s.desc}</div>${lockText}${sel?'<div style="color:#90EE90;font-size:12px;margin-top:6px;font-weight:bold;">✓ 已选择</div>':''}</div>`;
+  });
+  document.getElementById('stallGrid').innerHTML = html;
+}
+
+function selectStall(id) {
+  sfx('click'); let s = stalls.find(x=>x.id===id); let isUnlocked = unlockedStalls.includes(id);
+  if (!isUnlocked) {
+      if (totalMoney >= s.unlockCost) {
+          unlockedStalls.push(id);
+          localStorage.setItem('canteen_unlocked_stalls', JSON.stringify(unlockedStalls));
+          sfx('buy'); renderStallGrid();
+      } else { sfx('error'); return; }
+  }
+  selectedStall = s; document.getElementById('confirmStallBtn').disabled = false; renderStallGrid();
+}
+function confirmStall() { if(!selectedStall) return; sfx('click'); document.getElementById('stallSelect').style.display = 'none'; startGame(); }
+function backToMenu() { sfx('click'); document.getElementById('stallSelect').style.display = 'none'; document.getElementById('mm').classList.remove('h'); }
+
+// ==================== 游戏初始化 ====================
+function startGame() {
+  initAudio(); document.getElementById('gs').style.display = 'flex';
+  
+  // --- 新增：启动计时器 ---
+  startTime = Date.now();
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+      let cost = Math.floor((Date.now() - startTime) / 1000);
+      let m = Math.floor(cost / 60);
+      let s = cost % 60;
+      document.getElementById('statsBar').innerText = `速通计时: ${m}:${s < 10 ? '0'+s : s}`;
+  }, 1000);
+
+  let menu = stallMenus[selectedStall.id];
+  if(Object.keys(inventory).length === 0){ menu.forEach(d => { inventory[d.id] = 30; }); } else { menu.forEach(d => { if(inventory[d.id]===undefined) inventory[d.id]=30; }); }
+  money = 0; updateMoney(); renderFoodTray(); nextS(); 
+}
+// ==================== 学生与排队 ====================
+function fillQueue() {
+  let traffic = getCurrentTraffic();
+  while(queue.length < 5 && Math.random() < traffic) {
+    let typeKey = pickStudentType(); 
+    queue.push(makeStudent(typeKey));
+  }
+}
+
+function pickStudentType() { let total = 0; for(let k in specialTypes) total += specialTypes[k].rate; let r = Math.random() * total, cum = 0; for(let k in specialTypes){ cum += specialTypes[k].rate; if(r <= cum) return k; } return 'normal'; }
+function makeStudent(typeKey) {
+  let sType = specialTypes[typeKey]; let menu = stallMenus[selectedStall.id]; let order = [];
+  for(let i=0; i<sType.servings; i++){ let dish = menu[Math.floor(Math.random() * menu.length)]; let exist = order.find(o => o.dishId === dish.id); if(exist) exist.count++; else order.push({ dishId: dish.id, count: 1 }); }
+  let orderStr = order.map(o => { let d = menu.find(x=>x.id===o.dishId); return `${d.name}×${o.count}`; }).join('、');
+  let dList = sType.dialogues; let dialogue = dList[Math.floor(Math.random() * dList.length)].replace('{t}', orderStr);
+  let maxPat = 18000; if(typeKey === 'scholar') maxPat = 12000; if(typeKey === 'dummy') maxPat = 25000; if(typeKey === 'foodie') maxPat = 22000;
+  return { typeKey, order, orderStr, dialogue, maxPatience: maxPat, patienceLeft: maxPat, sType };
+}
+
+// 自动进人逻辑
+function nextS() {
+  if(money >= target){ winG(); return; }
+  if(patienceTimer) clearInterval(patienceTimer);
+  if(waitForStudentTimer) clearTimeout(waitForStudentTimer);
+  
+  document.getElementById('actionGroup').classList.remove('show');
+  document.getElementById('serveBtn').style.display = 'none';
+  document.getElementById('stuPatience').style.display = 'none';
+  document.getElementById('orderText').innerHTML = '';
+  document.getElementById('stuName').innerText = '正在准备...';
+  document.getElementById('studentImg').src = 'https://openmoji.org/data/color/svg/23F3.svg';
+  
+  curStudent = null; 
+  fillQueue(); 
+  renderQueue(); 
+  
+  if (queue.length === 0) {
+      document.getElementById('stuName').innerText = '正在等待学生...';
+      document.getElementById('waitingMsg').style.display = 'block';
+      waitForStudentTimer = setTimeout(nextS, 1000);
+      return;
+  }
+  
+  document.getElementById('waitingMsg').style.display = 'none';
+  curStudent = queue.shift(); 
+  softShakeCount = 0; 
+  
+  renderCurrentStudent(); 
+  renderQueue(); 
+  renderPlate(); 
+  renderFoodTray(); 
+  startPatience();
+  document.getElementById('serveBtn').style.display = 'block';
+  document.getElementById('serveBtn').disabled = (plate.length === 0);
+}
+
+function renderCurrentStudent() {
+  if(!curStudent) return; let s = curStudent.sType;
+  document.getElementById('studentImg').src = `https://openmoji.org/data/color/svg/${s.icon}.svg`;
+  let nameEl = document.getElementById('stuName'); nameEl.textContent = s.tag || s.name; nameEl.style.color = s.tagColor || '#5a4a3a';
+  let tag = document.getElementById('specialTag');
+  if(s.tag){ tag.textContent = s.tag; tag.style.background = s.tagColor; tag.style.display = 'block'; } else tag.style.display = 'none';
+  document.getElementById('stuPatience').style.display = 'block';
+  document.getElementById('stuPatienceFill').style.width = '100%'; document.getElementById('stuPatienceFill').style.background = '#90EE90';
+  document.getElementById('orderText').innerHTML = `要：${curStudent.orderStr}<span class="dialog">“${curStudent.dialogue}”</span>`;
+}
+
+function renderQueue() {
+  for (let i = 0; i < 3; i++) {
+    let slot = document.getElementById('qSlot' + i);
+    let st = queue[i];
+    if (st) {
+        let s = st.sType;
+        let pct = (st.patienceLeft / st.maxPatience) * 100;
+        slot.className = 'queue-slot filled';
+        slot.innerHTML = `<img src="https://openmoji.org/data/color/svg/${s.icon}.svg"><div class="qpat"><div class="qpat-fill" style="width:${pct}%"></div></div>`;
+    } else {
+        slot.className = 'queue-slot';
+        slot.innerHTML = `<span class="empty-text">空位</span>`;
+    }
+  }
+}
+
+function startPatience() {
+  if(patienceTimer) clearInterval(patienceTimer);
+  patienceTimer = setInterval(() => {
+    if(!curStudent) return; 
+    curStudent.patienceLeft -= 100;
+    
+    for (let i = queue.length - 1; i >= 0; i--) {
+        queue[i].patienceLeft -= 60;
+        if (queue[i].patienceLeft <= 0) queue.splice(i, 1);
+    }
+
+    let pct = (curStudent.patienceLeft / curStudent.maxPatience) * 100;
+    let fill = document.getElementById('stuPatienceFill');
+    if(fill){ fill.style.width = Math.max(0,pct)+'%'; fill.style.background = pct>60?'#90EE90':pct>30?'#FFD93D':'#ff6b6b'; }
+    
+    renderQueue();
+    
+    if(curStudent.patienceLeft <= 0){
+      clearInterval(patienceTimer); sfx('error'); showToast('学生等不及走了...', false);
+      document.getElementById('serveBtn').disabled = true; document.getElementById('actionGroup').classList.remove('show');
+      selectedDishId = null;
+      curStudent = null;
+      setTimeout(nextS, 1000);
+    }
+  }, 100);
+}
+
+// ==================== 菜品操作 ====================
+function renderFoodTray() {
+  let menu = stallMenus[selectedStall.id]; let portion = spoons[curSpoonIdx].portion; let html = '';
+  menu.forEach(d => {
+    let stock = inventory[d.id] || 0; let out = stock < portion; let sel = selectedDishId === d.id;
+    html += `<div class="food-item ${out?'disabled':''} ${sel?'selected':''}" onclick="selectDish('${d.id}')"><div class="fstock">${stock}</div><img src="https://openmoji.org/data/color/svg/${d.icon}.svg"><div class="fname">${d.name}</div></div>`;
+  });
+  document.getElementById('foodTray').innerHTML = html;
+}
+
+function selectDish(dishId) {
+  if(!curStudent) return; let portion = spoons[curSpoonIdx].portion;
+  if((inventory[dishId]||0) < portion){ sfx('error'); showToast('库存不足，请进货', false); return; }
+  sfx('click'); selectedDishId = dishId; renderFoodTray();
+  let menu = stallMenus[selectedStall.id]; let d = menu.find(x => x.id === dishId);
+  document.getElementById('selectedDishName').textContent = `选：${d.name}`;
+  document.getElementById('actionGroup').classList.add('show');
+}
+
+function cancelSelect() { sfx('click'); selectedDishId = null; renderFoodTray(); document.getElementById('actionGroup').classList.remove('show'); }
+
+function doAction(isShake) {
+  if(!selectedDishId || !curStudent) return; let portion = spoons[curSpoonIdx].portion;
+  if((inventory[selectedDishId]||0) < portion){ sfx('error'); showToast('库存不足', false); return; }
+  let menu = stallMenus[selectedStall.id]; let d = menu.find(x => x.id === selectedDishId);
+  
+  if(isShake){
+    sfx('shake'); totalShakes++;
+    if(curStudent.typeKey === 'soft'){
+      softShakeCount++;
+      if(softShakeCount === 1){ money += 2; sfx('soft'); showFloat('+¥2', '#90EE90'); showToast('软蛋：多、多给您2块...', false); } else { showToast('软蛋：（不敢说话）', false); }
+      updateMoney();
+    } else {
+      let effectiveCatch = Math.max(curStudent.sType.catchRate - safeStreak * 0.05, 0.10);
+      if (learnedSkills.includes('ghost')) effectiveCatch = Math.max(effectiveCatch - 0.10, 0);
+      if (learnedSkills.includes('combo')) effectiveCatch = Math.max(curStudent.sType.catchRate - safeStreak * 0.08, 0.10);
+
+      if(Math.random() < effectiveCatch){
+        safeStreak = 0; let penalty = roundToHalf(d.price * 1.2);
+        if (learnedSkills.includes('iron')) penalty = penalty / 2;
+        money -= penalty; totalCaught++; updateMoney();
+        sfx('catch'); document.body.classList.add('red-flash', 'shake-effect');
+        setTimeout(()=>document.body.classList.remove('red-flash', 'shake-effect'), 400);
+        showToast(`⚠️ 被发现！扣除 ¥${penalty}`, true); showFloat(`-¥${penalty}`, '#ff6b6b');
+        if(curStudent.sType.penalty){ 
+            let extra = curStudent.sType.penalty;
+            if (learnedSkills.includes('iron')) extra = extra / 2;
+            money -= extra; updateMoney(); 
+            setTimeout(()=>showToast(`🔥 ${curStudent.sType.name}额外罚款 -¥${extra}`, true), 600); 
+        }
+      } else { safeStreak++; showFloat(`安全 ×${safeStreak}`, '#90EE90'); }
+    }
+    
+    let cost = portion - 1; 
+    if (learnedSkills.includes('swipe') && Math.random() < 0.2) { showToast('顺手牵羊！这菜没扣库存！', false); cost = 0; }
+    inventory[selectedDishId] -= cost;
+    plate.push({ dishId: selectedDishId, isShaked: true });
+  } else { 
+    sfx('scoop'); 
+    let cost = portion;
+    if (learnedSkills.includes('swipe') && Math.random() < 0.2) { showToast('顺手牵羊！这菜没扣库存！', false); cost = 0; }
+    inventory[selectedDishId] -= cost; 
+    plate.push({ dishId: selectedDishId, isShaked: false }); 
+  }
+  
+  selectedDishId = null; document.getElementById('actionGroup').classList.remove('show'); renderFoodTray(); renderPlate(); document.getElementById('serveBtn').disabled = false;
+}
+
+function renderPlate() {
+  let plateEl = document.getElementById('plateFood');
+  if(plate.length === 0){ plateEl.innerHTML = '<span style="color:#888;font-size:14px;margin:auto;">餐盘空空如也</span>'; return; }
+  let menu = stallMenus[selectedStall.id]; let counts = {}; let shakedCounts = {};
+  plate.forEach(p => { if(p.isShaked) shakedCounts[p.dishId] = (shakedCounts[p.dishId]||0) + 1; else counts[p.dishId] = (counts[p.dishId]||0) + 1; });
+  let html = '';
+  for(let id in counts) { let d = menu.find(x => x.id === id); html += `<div class="plate-item"><img src="https://openmoji.org/data/color/svg/${d.icon}.svg">${d.name} x${counts[id]}</div>`; }
+  for(let id in shakedCounts) { let d = menu.find(x => x.id === id); html += `<div class="plate-item" style="border-color:#d4574a;color:#d4574a;"><img src="https://openmoji.org/data/color/svg/${d.icon}.svg">${d.name}(抖) x${shakedCounts[id]}</div>`; }
+  plateEl.innerHTML = html;
+}
+
+// ==================== 结算 ====================
+function serve() {
+  if(!curStudent) return; if(patienceTimer) clearInterval(patienceTimer); sfx('serve');
+  let menu = stallMenus[selectedStall.id]; let earnedIncome = 0, details = []; let isSoft = (curStudent.typeKey === 'soft'); let portion = spoons[curSpoonIdx].portion;
+  let newPlate = [...plate]; let unfilledTotal = 0;
+
+  curStudent.order.forEach(req => {
+     let dishId = req.dishId; let needCount = req.count; let menuDish = menu.find(x=>x.id===dishId);
+     let basePrice = menuDish.price * portion;
+     let availableCount = newPlate.filter(p => p.dishId === dishId).length;
+     let takeCount = Math.min(availableCount, needCount);
+     earnedIncome += takeCount * basePrice;
+     let removed = 0; newPlate = newPlate.filter(p => { if(p.dishId === dishId && removed < takeCount){ removed++; return false; } return true; });
+     if(takeCount < needCount){ unfilledTotal += (needCount - takeCount); }
+  });
+
+  let sType = curStudent.sType; let reaction = "";
+  if (unfilledTotal > 0) {
+    reaction = sType.reactions.bad[Math.floor(Math.random() * sType.reactions.bad.length)];
+    if (!isSoft) { let penalty = unfilledTotal * 15; earnedIncome -= penalty; details.push(`😡 少了 ${unfilledTotal} 份菜！扣款 -¥${penalty}`); } else { details.push(`🥺 软蛋不敢吭声，默默付了钱...`); }
+  } else { reaction = sType.reactions.good[Math.floor(Math.random() * sType.reactions.good.length)]; }
+  
+  if (newPlate.length > 0) { details.push(`🥡 没点的菜留在餐盘里了`); }
+  details.unshift(`💬 学生：“${reaction}”`);
+
+  if (unfilledTotal === 0 && curStudent.typeKey === 'scholar') { let tip = Math.random() < 0.5 ? 1 : 2; earnedIncome += tip; details.push(`🎓 学霸看阿姨打菜严谨，给了 ¥${tip} 小费！`); sfx('money'); }
+
+  earnedIncome = roundToHalf(earnedIncome);
+  money += earnedIncome; totalStudents++; updateMoney();
+
+  plate = newPlate; renderPlate();
+
+  let html = details.map(d=>`<div style="font-size:13px;color:#888;text-align:left;margin-bottom:4px;">${d}</div>`).join('');
+  html += `<div style="margin-top:10px;font-size:16px;font-weight:bold;color:${earnedIncome>=0?'#90EE90':'#ff6b6b'};">本局结算：${earnedIncome>=0?'+':''}¥${earnedIncome}</div>`;
+  document.getElementById('settleContent').innerHTML = html;
+  
+  document.getElementById('settlePopup').classList.add('show');
+  document.getElementById('serveBtn').disabled = true; document.getElementById('actionGroup').classList.remove('show');
+  
+  let settleTimer = setTimeout(() => { 
+    document.getElementById('settlePopup').classList.remove('show'); 
+    checkSkillTrigger();
+  }, 1500);
+  
+  document.getElementById('settlePopup').onclick = () => { 
+    clearTimeout(settleTimer); 
+    document.getElementById('settlePopup').classList.remove('show'); 
+    checkSkillTrigger(); 
+  };
+}
+
+function checkSkillTrigger() {
+    if (money >= target) {
+        winG();
+        return;
+    }
+
+    let triggeredIndex = -1;
+    for (let i = 0; i < skillMilestones.length; i++) {
+        if (money >= skillMilestones[i] && !skillTriggered[i]) {
+            skillTriggered[i] = true;
+            triggeredIndex = i;
+            break;
+        }
+    }
+
+    if (triggeredIndex !== -1 && learnedSkills.length < allSkills.length) {
+        showSkillSelection();
+    } else {
+        nextS();
+    }
+}
+
+function showSkillSelection() {
+    if (patienceTimer) clearInterval(patienceTimer);
+    let pool = allSkills.filter(s => !learnedSkills.includes(s.id));
+    pool = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    let html = '';
+    pool.forEach(sk => {
+        html += `
+        <div class="skill-card" onclick="learnSkill('${sk.id}')">
+            <div class="icon">${sk.icon}</div>
+            <div class="s-name">${sk.name}</div>
+            <div class="s-desc">${sk.desc}</div>
+        </div>`;
+    });
+    
+    document.getElementById('skillOptions').innerHTML = html;
+    document.getElementById('skillPopup').classList.add('show');
+    sfx('skill');
+}
+
+function learnSkill(id) {
+    learnedSkills.push(id);
+    document.getElementById('skillPopup').classList.remove('show');
+    sfx('click');
+    showFloat('技能已解锁！', '#FFD93D');
+    
+    let panel = document.getElementById('skillPanel');
+    let sk = allSkills.find(s => s.id === id);
+    let el = document.createElement('div');
+    el.className = 'skill-icon';
+    el.title = sk.name + ': ' + sk.desc;
+    el.innerHTML = `<span>${sk.icon}</span><span class="sk-name">${sk.name}</span>`;
+    panel.appendChild(el);
+    
+    setTimeout(() => nextS(), 1000);
+}
+
+// ==================== 商店等 ====================
+function updateMoney(){ document.getElementById('md').innerHTML = `💰 ${roundToHalf(money)}元`; }
+function toggleShop(){ sfx('click'); shopExpanded = !shopExpanded; document.getElementById('shopPanel').classList.toggle('collapsed', !shopExpanded); if(shopExpanded) renderShop(); }
+function renderShop(){
+  let html = '';
+  spoons.forEach((s, i) => {
+    let owned = i <= curSpoonIdx; let can = !owned && money >= s.price; let bg = owned?'#f0fff0':(can?'#fff':'#eee');
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px;margin:4px 0;border:2px solid ${owned?'#90EE90':'#d4c4a0'};border-radius:8px;background:${bg};cursor:${owned?'default':'pointer'};font-size:12px;" onclick="buySpoon(${i})"><div><b>${s.name}</b><br><span style="color:#888;font-size:10px;">${s.desc}</span></div><div style="color:#d4574a;font-weight:bold;">${owned?'✓':'¥'+s.price}</div></div>`;
+  });
+  document.getElementById('spoonList').innerHTML = html;
+}
+function buySpoon(idx){
+  if(idx <= curSpoonIdx) return; if(money < spoons[idx].price){ sfx('error'); return; }
+  sfx('buy'); money -= spoons[idx].price; curSpoonIdx = idx; updateMoney(); updateSpoonDisplay(); renderShop(); renderFoodTray(); showToast(`升级成功！${spoons[idx].desc}`, false);
+}
+function updateSpoonDisplay(){ let s = spoons[curSpoonIdx]; document.getElementById('curSpoonName').textContent = s.name; document.getElementById('curSpoonDesc').textContent = s.desc; }
+
+function openRestock(){
+  sfx('click'); let menu = stallMenus[selectedStall.id]; let html = '';
+  menu.forEach(d => { let stock = inventory[d.id] || 0; html += `<div class="restock-row" style="display:flex;justify-content:space-between;margin-bottom:8px;background:#fff;padding:8px;border:2px solid #d4c4a0;border-radius:8px;"><span>${d.name} (${stock})</span><span style="color:#d4574a;">¥${d.price*5}</span><button onclick="buyStock('${d.id}', 10, ${d.price*5})" style="background:#90EE90;border:2px solid #5a4a3a;border-radius:6px;font-weight:bold;cursor:pointer;">+10</button></div>`; });
+  document.getElementById('restockContent').innerHTML = html; document.getElementById('restockModal').style.display = 'flex';
+}
+function buyStock(dishId, amount, cost){ if(money < cost){ sfx('error'); showToast('钱不够', false); return; } sfx('buy'); money -= cost; inventory[dishId] = (inventory[dishId] || 0) + amount; updateMoney(); renderFoodTray(); openRestock(); }
+
+function showToast(msg, isCatch){ let t = document.getElementById('toast'); t.textContent = msg; if(isCatch) t.classList.add('catch'); else t.classList.remove('catch'); t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 2000); }
+function showFloat(text, color){ let el = document.createElement('div'); el.className = 'float-text'; el.textContent = text; el.style.color = color; el.style.left = (window.innerWidth/2 - 30) + 'px'; el.style.top = '40%'; document.body.appendChild(el); setTimeout(()=>el.remove(), 1000); }
+
+// ==================== 胜负 ====================
+async function winG(){ 
+    if(timerInterval) clearInterval(timerInterval);
+    let totalTime = Math.floor((Date.now() - startTime) / 1000);
+    
+    sfx('win'); document.getElementById('winModal').style.display = 'flex'; 
+    document.getElementById('winStats').innerHTML = `接待 ${totalStudents} 位学生<br>本局赚取 ${roundToHalf(money)} 元<br><b style="color:#d4574a; font-size:20px;">用时：${totalTime} 秒</b>`; 
+    
+    // 传时间上去
+    await submitScore(totalTime);
+}function resetG(){
+  sfx('click'); document.getElementById('winModal').style.display = 'none';
+  money = 0; curSpoonIdx = 0; queue = []; curStudent = null; plate = []; totalStudents = 0; totalShakes = 0; totalCaught = 0; safeStreak = 0;
+  learnedSkills = []; skillTriggered = [false, false, false, false];
+  document.getElementById('skillPanel').innerHTML = '';
+  let menu = stallMenus[selectedStall.id]; inventory = {}; menu.forEach(d => inventory[d.id]=30);
+  updateMoney(); renderFoodTray(); renderPlate();
+  nextS();
+}
+
+function backM(){ 
+    sfx('click'); document.getElementById('gs').style.display='none'; document.getElementById('winModal').style.display='none'; document.getElementById('mm').classList.remove('h'); 
+    if(patienceTimer) clearInterval(patienceTimer); 
+    if(waitForStudentTimer) clearTimeout(waitForStudentTimer);
+    if (money > 0) submitScore(roundToHalf(money));
+}
+function showTutorial(){
+  alert(`🎮 玩法说明：
+1. 全自动进人，没有下一位按钮，没人自动等待，结账完下一个自动出现！
+2. 右侧显示3个排队坑位，后台最多排5人，耐心耗尽会自动走。
+3. 遇到软蛋疯狂手抖做预制菜，下一任学生照付全款！
+4. 营业额达标自动触发技能三选一，技能竖排显示在左侧！
+5. 通关赚的钱自动存入云端，解锁全网榜单和新摊位！`);
+}
+
+// ==================== 音效 ====================
+let audioCtx = null;
+function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+function playTone(f, d, t='sine', v=0.2){ if(!audioCtx) return; let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type=t; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); }
+function sfx(n){
+  initAudio();
+  if(n==='click') playTone(800,0.08,'sine',0.15);
+  else if(n==='scoop'){ playTone(400,0.12,'triangle',0.2); setTimeout(()=>playTone(600,0.1,'triangle',0.15),80); }
+  else if(n==='shake'){ for(let i=0;i<6;i++) setTimeout(()=>playTone(300+Math.random()*300,0.06,'sawtooth',0.12),i*40); }
+  else if(n==='serve'){ playTone(523,0.12,'sine',0.2); setTimeout(()=>playTone(659,0.12,'sine',0.2),100); setTimeout(()=>playTone(784,0.2,'sine',0.18),200); }
+  else if(n==='money'){ playTone(1200,0.06,'sine',0.15); setTimeout(()=>playTone(1500,0.1,'sine',0.12),60); }
+  else if(n==='error') playTone(150,0.25,'sawtooth',0.12);
+  else if(n==='catch'){ playTone(100,0.4,'sawtooth',0.25); setTimeout(()=>playTone(80,0.4,'sawtooth',0.2),180); }
+  else if(n==='buy'){ playTone(600,0.08,'sine',0.15); setTimeout(()=>playTone(800,0.12,'sine',0.15),80); setTimeout(()=>playTone(1000,0.18,'sine',0.12),200); }
+  else if(n==='soft'){ playTone(400,0.1,'sine',0.15); setTimeout(()=>playTone(500,0.15,'sine',0.12),100); }
+  else if(n==='win'){ [523,587,659,784,880,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.18),i*130)); }
+}
+
+window.onload = function(){ 
+    fetchCloudMoney(); 
+    // 每次打开网页，延迟2秒自动补传之前断网没传上的成绩
+    setTimeout(syncPendingTimes, 2000); 
+};
+document.addEventListener('gesturestart', e=>e.preventDefault());
+</script>
+</body>
+</html>
